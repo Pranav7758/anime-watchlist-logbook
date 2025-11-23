@@ -5,7 +5,7 @@ import { Session, User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, Plus, Search, Trophy, Users } from "lucide-react";
+import { LogOut, Plus, Search, Trophy, Users, Grid3x3, Grid2x2, LayoutGrid } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AnimeRanking from "@/components/AnimeRanking";
 import Friends from "@/components/Friends";
@@ -48,6 +48,10 @@ const Index = () => {
   const [editingAnime, setEditingAnime] = useState<(Anime & AnimeFormData) | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("list");
+  const [gridSize, setGridSize] = useState<string>(() => {
+    const saved = localStorage.getItem("animeGridSize");
+    return saved || "medium";
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -96,8 +100,8 @@ const Index = () => {
                 `Found ${result.updates} new episode${result.updates !== 1 ? 's' : ''} and ${result.newSeasons} new season${result.newSeasons !== 1 ? 's' : ''}!`
               );
               // Refresh the anime list to show new seasons
-              fetchAnimeList();
-            }
+      fetchAnimeList();
+    }
           } catch (error) {
             console.error("Error checking updates:", error);
           }
@@ -340,15 +344,15 @@ const Index = () => {
     // Create entries for all seasons
     const seasonsToAdd = Array.from({ length: numberOfSeasons }, (_, i) => {
       const entry: any = {
-        user_id: user!.id,
-        title: data.title,
-        episodes_watched: data.episodesWatched,
-        total_episodes: data.totalEpisodes,
-        status: data.status,
-        rating: data.rating,
-        notes: data.notes,
-        cover_image: data.coverImage || null,
-        season_number: i + 1,
+      user_id: user!.id,
+      title: data.title,
+      episodes_watched: data.episodesWatched,
+      total_episodes: data.totalEpisodes,
+      status: data.status,
+      rating: data.rating,
+      notes: data.notes,
+      cover_image: data.coverImage || null,
+      season_number: i + 1,
         is_hentai: data.isHentai || false, // Use form data or default to false
       };
       return entry;
@@ -465,9 +469,9 @@ const Index = () => {
       <header className="sticky top-0 z-10 border-b border-border/50 bg-background/80 backdrop-blur-lg">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              AnimeTracker
-            </h1>
+            <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+              AniCircle
+            </h2>
             <div className="flex items-center gap-2">
               {user && <Notifications userId={user.id} />}
               <Button
@@ -491,54 +495,83 @@ const Index = () => {
             setFriendFilter("my-list");
           }
         }} className="w-full">
-          <div className="mb-6 flex items-center justify-between">
-            <TabsList>
-              <TabsTrigger value="list">My List</TabsTrigger>
-              <TabsTrigger value="ranking">
-                <Trophy className="w-4 h-4 mr-2" />
-                Rankings
-              </TabsTrigger>
-              <TabsTrigger value="friends">
-                <Users className="w-4 h-4 mr-2" />
-                Friends
-              </TabsTrigger>
-            </TabsList>
+          <div className="mb-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <TabsList>
+                <TabsTrigger value="list">My List</TabsTrigger>
+                <TabsTrigger value="ranking">
+                  <Trophy className="w-4 h-4 mr-2" />
+                  Rankings
+                </TabsTrigger>
+                <TabsTrigger value="friends">
+                  <Users className="w-4 h-4 mr-2" />
+                  Friends
+                </TabsTrigger>
+              </TabsList>
+            </div>
             {activeTab === "list" && (
-              <Button
-                onClick={() => setIsAddDialogOpen(true)}
-                className="gradient-primary hover:opacity-90 transition-smooth shadow-glow"
-              >
-                <Plus className="w-5 h-5 mr-2" />
-                Add Anime
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                <Select value={gridSize} onValueChange={(value) => {
+                  setGridSize(value);
+                  localStorage.setItem("animeGridSize", value);
+                }}>
+                  <SelectTrigger className="w-full sm:w-40">
+                    <SelectValue placeholder="View size" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="compact">
+                      Compact (7 per row)
+                    </SelectItem>
+                    <SelectItem value="small">
+                      Small (6 per row)
+                    </SelectItem>
+                    <SelectItem value="medium">
+                      Medium (5 per row)
+                    </SelectItem>
+                    <SelectItem value="large">
+                      Large (4 per row)
+                    </SelectItem>
+                    <SelectItem value="extra-large">
+                      Extra Large (3 per row)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={() => setIsAddDialogOpen(true)}
+                  className="w-full sm:w-auto gradient-primary hover:opacity-90 transition-smooth shadow-glow"
+                >
+                  <Plus className="w-5 h-5 mr-2" />
+                  Add Anime
+                </Button>
+              </div>
             )}
           </div>
 
           <TabsContent value="list" className="space-y-4">
             <div className="mb-4 space-y-4">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input
-                    placeholder="Search anime..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full md:w-48">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="watching">Watching</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="plan_to_watch">Plan to Watch</SelectItem>
-                    <SelectItem value="on_hold">On Hold</SelectItem>
-                    <SelectItem value="dropped">Dropped</SelectItem>
-                  </SelectContent>
-                </Select>
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Input
+                placeholder="Search anime..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full md:w-48">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="watching">Watching</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="plan_to_watch">Plan to Watch</SelectItem>
+                <SelectItem value="on_hold">On Hold</SelectItem>
+                <SelectItem value="dropped">Dropped</SelectItem>
+              </SelectContent>
+            </Select>
                 <Select value={hentaiFilter} onValueChange={setHentaiFilter}>
                   <SelectTrigger className="w-full md:w-48">
                     <SelectValue placeholder="Hentai filter" />
@@ -559,43 +592,49 @@ const Index = () => {
                     <SelectItem value="unranked">Unranked Only</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-            </div>
+          </div>
+        </div>
 
-            {filteredAnimeList.length === 0 ? (
-              <div className="text-center py-20 space-y-4">
-                <div className="text-8xl opacity-20">📺</div>
+        {filteredAnimeList.length === 0 ? (
+          <div className="text-center py-20 space-y-4">
+            <div className="text-8xl opacity-20">📺</div>
                 <h2 className="text-2xl font-bold text-foreground">
                   No anime found
                 </h2>
-                <p className="text-muted-foreground">
+            <p className="text-muted-foreground">
                   {searchQuery || statusFilter !== "all" || hentaiFilter !== "show" || rankingFilter !== "all"
-                    ? "Try adjusting your filters"
-                    : "Start by adding your first anime!"}
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 animate-fade-in">
-                {Object.entries(groupedAnime).map(([title, seasons]) => (
-                  <AnimeGroupCard
-                    key={title}
-                    title={title}
-                    coverImage={seasons[0].cover_image}
-                    seasons={seasons.map(s => ({
-                      id: s.id,
-                      seasonNumber: s.season_number,
-                      episodesWatched: s.episodes_watched,
-                      totalEpisodes: s.total_episodes,
-                      status: s.status,
-                      rating: s.rating,
-                      notes: s.notes,
-                    }))}
-                    onEdit={openEditDialog}
-                    onDelete={handleDeleteAnime}
-                  />
-                ))}
-              </div>
-            )}
+                ? "Try adjusting your filters"
+                : "Start by adding your first anime!"}
+            </p>
+          </div>
+        ) : (
+              <div className={`grid gap-3 sm:gap-4 animate-fade-in ${
+                gridSize === "compact" ? "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7" :
+                gridSize === "small" ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6" :
+                gridSize === "medium" ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" :
+                gridSize === "large" ? "grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4" :
+                "grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3"
+              }`}>
+            {Object.entries(groupedAnime).map(([title, seasons]) => (
+              <AnimeGroupCard
+                key={title}
+                title={title}
+                coverImage={seasons[0].cover_image}
+                seasons={seasons.map(s => ({
+                  id: s.id,
+                  seasonNumber: s.season_number,
+                  episodesWatched: s.episodes_watched,
+                  totalEpisodes: s.total_episodes,
+                  status: s.status,
+                  rating: s.rating,
+                  notes: s.notes,
+                }))}
+                onEdit={openEditDialog}
+                onDelete={handleDeleteAnime}
+              />
+            ))}
+          </div>
+        )}
           </TabsContent>
 
           <TabsContent value="ranking" className="space-y-4">

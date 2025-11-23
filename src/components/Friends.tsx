@@ -46,6 +46,7 @@ const Friends = ({ currentUserId }: FriendsProps) => {
   const [searchEmail, setSearchEmail] = useState("");
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [myShortId, setMyShortId] = useState<string>("");
   
   // Friend anime list viewer state
   const [friendAnimeList, setFriendAnimeList] = useState<Anime[]>([]);
@@ -176,7 +177,23 @@ const Friends = ({ currentUserId }: FriendsProps) => {
 
   useEffect(() => {
     fetchFriends();
+    fetchMyShortId();
   }, [currentUserId]);
+
+  const fetchMyShortId = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("short_id")
+        .eq("id", currentUserId)
+        .single();
+
+      if (error) throw error;
+      setMyShortId(data?.short_id || "");
+    } catch (error) {
+      console.error("Error fetching short ID:", error);
+    }
+  };
 
   useEffect(() => {
     if (selectedFriendForList) {
@@ -225,14 +242,33 @@ const Friends = ({ currentUserId }: FriendsProps) => {
     return groups;
   }, {} as Record<string, Anime[]>);
 
-  const sendFriendRequestByUserId = async (friendUserId: string) => {
-    if (friendUserId === currentUserId) {
-      toast.error("You can't add yourself as a friend");
+  const sendFriendRequestByShortId = async (shortId: string) => {
+    if (!shortId || shortId.trim().length !== 5) {
+      toast.error("Please enter a valid 5-character User ID");
       return;
     }
 
     setIsLoading(true);
     try {
+      // Look up user by short_id
+      const { data: profile, error: lookupError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("short_id", shortId.toUpperCase().trim())
+        .single();
+
+      if (lookupError || !profile) {
+        toast.error("User not found. Please check the User ID.");
+        return;
+      }
+
+      const friendUserId = profile.id;
+
+      if (friendUserId === currentUserId) {
+        toast.error("You can't add yourself as a friend");
+        return;
+      }
+
       // Check if request already exists
       const { data: existing } = await supabase
         .from("friends")
@@ -484,8 +520,8 @@ const Friends = ({ currentUserId }: FriendsProps) => {
                               <UserPlus className="h-5 w-5" />
                             </div>
                             <div>
-                              <p className="font-medium">Friend Request</p>
-                              <p className="text-sm text-muted-foreground">User ID: {request.user_id.slice(0, 8)}...</p>
+                              <p className="font-medium">{request.friend_name || "Friend Request"}</p>
+                              <p className="text-sm text-muted-foreground">{request.friend_email || "Pending request"}</p>
                             </div>
                           </div>
                           <div className="flex gap-2">
@@ -549,24 +585,43 @@ const Friends = ({ currentUserId }: FriendsProps) => {
             <CardContent className="p-6 space-y-4">
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  To add friends, share your User ID with them, or ask for their User ID.
+                  To add friends, share your 5-character User ID with them, or ask for their User ID.
                 </p>
                 <div className="p-3 bg-muted rounded-lg">
                   <p className="text-xs text-muted-foreground mb-1">Your User ID:</p>
-                  <p className="font-mono text-sm break-all">{currentUserId}</p>
+                  {myShortId ? (
+                    <div className="flex items-center gap-2">
+                      <p className="font-mono text-lg font-bold">{myShortId}</p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(myShortId);
+                          toast.success("User ID copied to clipboard!");
+                        }}
+                        className="h-7"
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="font-mono text-sm">Loading...</p>
+                  )}
                 </div>
               </div>
               <div className="space-y-2">
                 <Input
-                  placeholder="Enter friend's User ID"
+                  placeholder="Enter friend's 5-character User ID (e.g., A3B7K)"
                   value={searchEmail}
-                  onChange={(e) => setSearchEmail(e.target.value)}
+                  onChange={(e) => setSearchEmail(e.target.value.toUpperCase().slice(0, 5))}
+                  maxLength={5}
+                  className="font-mono text-center text-lg tracking-widest"
                 />
                 <Button
                   className="w-full"
                   onClick={() => {
                     if (searchEmail.trim()) {
-                      sendFriendRequestByUserId(searchEmail.trim());
+                      sendFriendRequestByShortId(searchEmail.trim());
                     } else {
                       toast.error("Please enter a User ID");
                     }
