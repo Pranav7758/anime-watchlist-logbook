@@ -442,6 +442,12 @@ const AddAnimeDialog = ({ open, onOpenChange, onSubmit, initialData, isEditing =
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate cover image is required
+    if (!formData.coverImage || formData.coverImage.trim() === "") {
+      toast.error("Cover image is required. Please select an anime from search or provide an image URL.");
+      return;
+    }
+    
     // If we have season data, ensure at least one is selected
     if (formData.seasons && formData.seasons.length > 0) {
       const selectedSeasons = formData.seasons.filter(s => s.selected);
@@ -748,12 +754,13 @@ const AddAnimeDialog = ({ open, onOpenChange, onSubmit, initialData, isEditing =
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="coverImage">Cover Image URL</Label>
+            <Label htmlFor="coverImage">Cover Image URL *</Label>
             <Input
               id="coverImage"
               value={formData.coverImage}
               onChange={(e) => setFormData({ ...formData, coverImage: e.target.value })}
               placeholder="https://example.com/image.jpg"
+              required
               disabled={isLoading}
             />
           </div>

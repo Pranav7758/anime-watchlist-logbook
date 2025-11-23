@@ -74,46 +74,46 @@ const AnimeGroupCard = ({
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center gradient-hero">
-              <span className="text-6xl opacity-20">📺</span>
+              <span className="text-4xl sm:text-6xl opacity-20">📺</span>
             </div>
           )}
-          <div className="absolute top-2 right-2 flex gap-2">
-            <Badge className={statusColors[primaryStatus as keyof typeof statusColors]}>
+          <div className="absolute top-1 right-1 sm:top-2 sm:right-2 flex gap-1 sm:gap-2">
+            <Badge className={`${statusColors[primaryStatus as keyof typeof statusColors]} text-[10px] sm:text-xs px-1 sm:px-2 py-0`}>
               {statusLabels[primaryStatus as keyof typeof statusLabels]}
             </Badge>
-            <Badge variant="secondary">{seasons.length} Season{seasons.length !== 1 ? 's' : ''}</Badge>
+            <Badge variant="secondary" className="text-[10px] sm:text-xs px-1 sm:px-2 py-0">{seasons.length} S</Badge>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="p-4 space-y-3">
-        <h3 className="font-bold text-lg line-clamp-2 text-foreground">{title}</h3>
+      <CardContent className="p-2 sm:p-3 space-y-2">
+        <h3 className="font-bold text-sm sm:text-base line-clamp-2 text-foreground">{title}</h3>
         
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Total Progress</span>
-            <span className="font-semibold text-foreground">
-              {totalEpisodesWatched}{totalEpisodes > 0 ? ` / ${totalEpisodes}` : ""} eps
+        <div className="space-y-1.5">
+          <div className="flex justify-between text-xs sm:text-sm">
+            <span className="text-muted-foreground">Progress</span>
+            <span className="font-semibold text-foreground text-xs sm:text-sm">
+              {totalEpisodesWatched}{totalEpisodes > 0 ? `/${totalEpisodes}` : ""}
             </span>
           </div>
           {totalEpisodes > 0 && (
-            <Progress value={overallProgress} className="h-2 bg-muted" />
+            <Progress value={overallProgress} className="h-1.5 sm:h-2 bg-muted" />
           )}
         </div>
 
         {avgRating && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Avg Rating:</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs sm:text-sm text-muted-foreground">Rating:</span>
             <div className="flex items-center gap-1">
-              <span className="text-lg font-bold text-primary">⭐</span>
-              <span className="font-semibold text-foreground">{avgRating}/10</span>
+              <span className="text-sm sm:text-base font-bold text-primary">⭐</span>
+              <span className="font-semibold text-foreground text-xs sm:text-sm">{avgRating}/10</span>
             </div>
           </div>
         )}
 
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
           <CollapsibleTrigger asChild>
-            <Button variant="outline" size="sm" className="w-full">
-              {isOpen ? <ChevronUp className="w-4 h-4 mr-2" /> : <ChevronDown className="w-4 h-4 mr-2" />}
+            <Button variant="outline" size="sm" className="w-full text-xs sm:text-sm h-7 sm:h-9">
+              {isOpen ? <ChevronUp className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" /> : <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />}
               {isOpen ? "Hide" : "Show"} Seasons
             </Button>
           </CollapsibleTrigger>
@@ -171,8 +171,8 @@ const AnimeGroupCard = ({
           </CollapsibleContent>
         </Collapsible>
       </CardContent>
-      <CardFooter className="p-4 pt-0">
-        <p className="text-xs text-muted-foreground">Expand to edit individual seasons</p>
+      <CardFooter className="p-2 sm:p-3 pt-0">
+        <p className="text-[10px] sm:text-xs text-muted-foreground">Expand to edit seasons</p>
       </CardFooter>
     </Card>
   );
