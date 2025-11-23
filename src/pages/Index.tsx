@@ -15,6 +15,7 @@ import AnimeGroupCard from "@/components/AnimeGroupCard";
 import AddAnimeDialog, { AnimeFormData } from "@/components/AddAnimeDialog";
 import Notifications from "@/components/Notifications";
 import { checkAnimeUpdates } from "@/services/animeUpdates";
+import Footer from "@/components/Footer";
 
 interface Anime {
   id: string;
@@ -326,7 +327,7 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen pb-8">
+    <div className="min-h-screen flex flex-col">
       <header className="sticky top-0 z-10 border-b border-border/50 bg-background/80 backdrop-blur-lg">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -348,7 +349,7 @@ const Index = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 pt-8">
+      <main className="container mx-auto px-4 pt-8 pb-8 flex-1">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="mb-6 flex items-center justify-between">
             <TabsList>
@@ -476,6 +477,7 @@ const Index = () => {
           isEditing
         />
       )}
+      <Footer />
     </div>
   );
 };

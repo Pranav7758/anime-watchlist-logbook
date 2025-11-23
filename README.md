@@ -2,6 +2,8 @@
 
 A modern web application for tracking your anime watchlist, built with React, TypeScript, and Supabase.
 
+🌐 **Live Demo**: [https://anime-watchlist-rust.vercel.app/](https://anime-watchlist-rust.vercel.app/)
+
 ## Features
 
 - 📺 **Anime Tracking**: Add and manage your anime collection with detailed information
@@ -116,6 +118,16 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is open source and available under the MIT License.
+
+## Live Demo
+
+Visit the live application at: [https://anime-watchlist-rust.vercel.app/](https://anime-watchlist-rust.vercel.app/)
+
+## Contact
+
+- **Name**: Pranav Amit Borse
+- **Email**: borsepranav700@gmail.com
+- **Phone**: +91 7758040552
 
 ## Acknowledgments
 
