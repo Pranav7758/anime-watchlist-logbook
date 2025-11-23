@@ -41,13 +41,19 @@ const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [hentaiFilter, setHentaiFilter] = useState<string>("show"); // "hide", "show", "only" - default to "show all"
+  const [rankingFilter, setRankingFilter] = useState<string>("all"); // "all", "ranked", "unranked"
+  const [friendFilter, setFriendFilter] = useState<string>("my-list"); // Friend user ID to filter by, "my-list" means own list
+  const [friendsList, setFriendsList] = useState<Array<{id: string, name: string}>>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingAnime, setEditingAnime] = useState<(Anime & AnimeFormData) | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("list");
 
   useEffect(() => {
+    let mounted = true;
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
       setSession(session);
       setUser(session?.user ?? null);
       if (!session) {
@@ -56,55 +62,103 @@ const Index = () => {
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
       setSession(session);
       setUser(session?.user ?? null);
       if (!session) {
         navigate("/auth");
       }
       setIsLoading(false);
+    }).catch((error) => {
+      console.error("Error getting session:", error);
+      if (mounted) {
+        setIsLoading(false);
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   useEffect(() => {
     if (user) {
-      fetchAnimeList();
-      
-      // Check for anime updates when user loads the page
-      const checkUpdates = async () => {
-        try {
-          const result = await checkAnimeUpdates(user.id);
-          if (result && (result.updates > 0 || result.newSeasons > 0)) {
-            toast.success(
-              `Found ${result.updates} new episode${result.updates !== 1 ? 's' : ''} and ${result.newSeasons} new season${result.newSeasons !== 1 ? 's' : ''}!`
-            );
-            // Refresh the anime list to show new seasons
-            fetchAnimeList();
+      try {
+        fetchAnimeList();
+        
+        // Check for anime updates when user loads the page
+        const checkUpdates = async () => {
+          try {
+            const result = await checkAnimeUpdates(user.id);
+            if (result && (result.updates > 0 || result.newSeasons > 0)) {
+              toast.success(
+                `Found ${result.updates} new episode${result.updates !== 1 ? 's' : ''} and ${result.newSeasons} new season${result.newSeasons !== 1 ? 's' : ''}!`
+              );
+              // Refresh the anime list to show new seasons
+              fetchAnimeList();
+            }
+          } catch (error) {
+            console.error("Error checking updates:", error);
           }
-        } catch (error) {
-          console.error("Error checking updates:", error);
-        }
-      };
-      
-      // Check updates after a short delay to avoid blocking initial load
-      setTimeout(checkUpdates, 2000);
-      
-      // Set up periodic checks (every 30 minutes)
-      const updateInterval = setInterval(checkUpdates, 30 * 60 * 1000);
-      
-      return () => clearInterval(updateInterval);
+        };
+        
+        // Check updates after a short delay to avoid blocking initial load
+        const updateTimeout = setTimeout(checkUpdates, 2000);
+        
+        // Set up periodic checks (every 30 minutes)
+        const updateInterval = setInterval(checkUpdates, 30 * 60 * 1000);
+        
+        return () => {
+          clearTimeout(updateTimeout);
+          clearInterval(updateInterval);
+        };
+      } catch (error) {
+        console.error("Error in user effect:", error);
+        setIsLoading(false);
+      }
+    } else {
+      setIsLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   useEffect(() => {
+    if (user) {
+      fetchFriendsList();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      setAnimeList([]);
+      return;
+    }
+    
+    // Only fetch own list when on "My List" tab
+    if (activeTab === "list") {
+      try {
+        fetchAnimeList();
+      } catch (error) {
+        console.error("Error fetching anime list:", error);
+        setAnimeList([]);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, activeTab]);
+
+  useEffect(() => {
     filterAnimeList();
-  }, [searchQuery, statusFilter, hentaiFilter, animeList]);
+  }, [searchQuery, statusFilter, hentaiFilter, rankingFilter, animeList]);
 
   const fetchAnimeList = async () => {
+    if (!user) return;
+    
     const { data, error } = await supabase
       .from("anime")
       .select("*")
+      .eq("user_id", user.id) // Only fetch current user's anime
       .order("ranking", { ascending: true, nullsLast: true })
       .order("created_at", { ascending: false });
 
@@ -114,6 +168,78 @@ const Index = () => {
     }
 
     setAnimeList(data || []);
+  };
+
+  const fetchFriendAnimeList = async (friendId: string) => {
+    if (!user) return;
+    
+    const { data, error } = await supabase
+      .from("anime")
+      .select("*")
+      .eq("user_id", friendId) // Fetch friend's anime
+      .order("ranking", { ascending: true, nullsLast: true })
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      toast.error("Failed to load friend's anime list");
+      return;
+    }
+
+    setAnimeList(data || []);
+  };
+
+  const fetchFriendsList = async () => {
+    if (!user) return;
+    
+    try {
+      // Get accepted friends
+      const { data: accepted, error } = await supabase
+        .from("friends")
+        .select("*")
+        .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
+        .eq("status", "accepted");
+
+      if (error) throw error;
+
+      // Get friend IDs and fetch their names
+      const friendIds = new Set<string>();
+      (accepted || []).forEach((f) => {
+        if (f.user_id === user.id) {
+          friendIds.add(f.friend_id);
+        } else {
+          friendIds.add(f.user_id);
+        }
+      });
+
+      // Fetch friend names from profiles
+      const friendsWithNames = await Promise.all(
+        Array.from(friendIds).map(async (friendId) => {
+          try {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("name")
+              .eq("id", friendId)
+              .single();
+            
+            return {
+              id: friendId,
+              name: profile?.name || `User ${friendId.slice(0, 8)}`,
+            };
+          } catch (err) {
+            // If profiles table doesn't exist or error, use fallback
+            return {
+              id: friendId,
+              name: `User ${friendId.slice(0, 8)}`,
+            };
+          }
+        })
+      );
+
+      setFriendsList(friendsWithNames);
+    } catch (error) {
+      console.error("Error fetching friends list:", error);
+      setFriendsList([]); // Set empty array on error to prevent crashes
+    }
   };
 
   const filterAnimeList = () => {
@@ -137,11 +263,19 @@ const Index = () => {
     }
     // "show" means show all, no filtering needed
 
+    // Filter by ranking
+    if (rankingFilter === "ranked") {
+      filtered = filtered.filter((anime) => anime.ranking !== null);
+    } else if (rankingFilter === "unranked") {
+      filtered = filtered.filter((anime) => anime.ranking === null);
+    }
+    // "all" means show all, no filtering needed
+
     setFilteredAnimeList(filtered);
   };
 
   // Group anime by title
-  const groupedAnime = filteredAnimeList.reduce((groups, anime) => {
+  const groupedAnime = (filteredAnimeList || []).reduce((groups, anime) => {
     const title = anime.title;
     if (!groups[title]) {
       groups[title] = [];
@@ -350,7 +484,13 @@ const Index = () => {
       </header>
 
       <main className="container mx-auto px-4 pt-8 pb-8 flex-1">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={(value) => {
+          setActiveTab(value);
+          // Reset friend filter when switching to "My List" tab
+          if (value === "list") {
+            setFriendFilter("my-list");
+          }
+        }} className="w-full">
           <div className="mb-6 flex items-center justify-between">
             <TabsList>
               <TabsTrigger value="list">My List</TabsTrigger>
@@ -409,15 +549,27 @@ const Index = () => {
                     <SelectItem value="only">Hentai Only</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select value={rankingFilter} onValueChange={setRankingFilter}>
+                  <SelectTrigger className="w-full md:w-48">
+                    <SelectValue placeholder="Ranking filter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Anime</SelectItem>
+                    <SelectItem value="ranked">Ranked Only</SelectItem>
+                    <SelectItem value="unranked">Unranked Only</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
             {filteredAnimeList.length === 0 ? (
               <div className="text-center py-20 space-y-4">
                 <div className="text-8xl opacity-20">📺</div>
-                <h2 className="text-2xl font-bold text-foreground">No anime found</h2>
+                <h2 className="text-2xl font-bold text-foreground">
+                  No anime found
+                </h2>
                 <p className="text-muted-foreground">
-                  {searchQuery || statusFilter !== "all"
+                  {searchQuery || statusFilter !== "all" || hentaiFilter !== "show" || rankingFilter !== "all"
                     ? "Try adjusting your filters"
                     : "Start by adding your first anime!"}
                 </p>

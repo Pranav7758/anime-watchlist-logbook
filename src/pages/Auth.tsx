@@ -15,6 +15,7 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -31,19 +32,43 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      if (!name.trim()) {
+        toast.error("Please enter your name");
+        setIsLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            name: name.trim(),
+          },
         },
       });
 
       if (error) throw error;
 
+      // Update profile with name
+      if (data.user) {
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .upsert({
+            id: data.user.id,
+            name: name.trim(),
+          });
+
+        if (profileError) {
+          console.error("Error creating profile:", profileError);
+        }
+      }
+
       toast.success("Account created! You can now sign in.");
       setEmail("");
       setPassword("");
+      setName("");
     } catch (error: any) {
       toast.error(error.message || "Failed to sign up");
     } finally {
@@ -139,6 +164,18 @@ const Auth = () => {
             
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="signup-name">Name *</Label>
+                  <Input
+                    id="signup-name"
+                    type="text"
+                    placeholder="Your Name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Email</Label>
                   <Input

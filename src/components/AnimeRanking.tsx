@@ -45,6 +45,17 @@ const AnimeRanking = ({ userId, isOwnProfile = true }: AnimeRankingProps) => {
       }, {} as Record<string, RankedAnime>);
 
       const ranked = Object.values(grouped);
+      
+      // Sort: ranked first (by ranking number), then unranked (by created_at)
+      ranked.sort((a, b) => {
+        if (a.ranking !== null && b.ranking !== null) {
+          return a.ranking - b.ranking;
+        }
+        if (a.ranking !== null) return -1;
+        if (b.ranking !== null) return 1;
+        return 0; // Both unranked, keep original order
+      });
+      
       setAnimeList(ranked);
     } catch (error) {
       console.error("Error fetching ranked anime:", error);
@@ -110,7 +121,7 @@ const AnimeRanking = ({ userId, isOwnProfile = true }: AnimeRankingProps) => {
   if (animeList.length === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-muted-foreground">No anime ranked yet</p>
+        <p className="text-muted-foreground">No anime found. Add some anime to start ranking!</p>
       </div>
     );
   }
