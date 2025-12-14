@@ -113,7 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser({
               id: newProfile.id,
               email: newProfile.email || "",
-              username: newProfile.username,
+              username: newProfile.name,
               shortId: newProfile.short_id || null,
             });
           } else {
@@ -130,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser({
           id: data.id,
           email: data.email || "",
-          username: data.username,
+          username: data.name,
           shortId: data.short_id || null,
         });
       } else {
