@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { apiRequest } from "@/lib/queryClient";
+import { getAnimeList, updateAnime } from "@/services/supabaseData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,8 +29,7 @@ const AnimeRanking = ({ userId, isOwnProfile = true }: AnimeRankingProps) => {
   const fetchRankedAnime = async () => {
     setIsLoading(true);
     try {
-      const res = await apiRequest("GET", "/api/anime");
-      const data = await res.json();
+      const data = await getAnimeList();
 
       const grouped = (data || []).reduce((acc: Record<string, RankedAnime>, anime: any) => {
         if (!acc[anime.title]) {
@@ -113,7 +112,7 @@ const AnimeRanking = ({ userId, isOwnProfile = true }: AnimeRankingProps) => {
       for (let i = 0; i < newOrderedList.length; i++) {
         const anime = newOrderedList[i];
         const ranking = anime.ranking !== null ? i + 1 : null;
-        await apiRequest("PATCH", `/api/anime/${anime.id}`, { ranking });
+        await updateAnime(anime.id, { ranking });
       }
       toast.success(`${clickedAnime.title} is now ranked #${newRank}!`);
     } catch (error) {
@@ -150,10 +149,10 @@ const AnimeRanking = ({ userId, isOwnProfile = true }: AnimeRankingProps) => {
     setAnimeList(finalList);
 
     try {
-      await apiRequest("PATCH", `/api/anime/${id}`, { ranking: null });
+      await updateAnime(id, { ranking: null });
       for (const anime of finalList) {
         if (anime.ranking !== null) {
-          await apiRequest("PATCH", `/api/anime/${anime.id}`, { ranking: anime.ranking });
+          await updateAnime(anime.id, { ranking: anime.ranking });
         }
       }
       toast.success("Ranking removed");

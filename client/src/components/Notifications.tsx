@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { apiRequest } from "@/lib/queryClient";
-import { Bell, X, Check } from "lucide-react";
+import { getNotifications, markNotificationRead, markAllNotificationsRead } from "@/services/supabaseData";
+import { Bell, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -32,14 +32,12 @@ const Notifications = ({ userId }: NotificationsProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const fetchNotifications = async () => {
+  const fetchNotificationsData = async () => {
     if (!userId) return;
 
     setIsLoading(true);
     try {
-      const res = await apiRequest("GET", "/api/notifications");
-      const data = await res.json();
-
+      const data = await getNotifications();
       setNotifications(data || []);
       setUnreadCount(data?.filter((n: Notification) => !n.read).length || 0);
     } catch (error) {
@@ -51,7 +49,7 @@ const Notifications = ({ userId }: NotificationsProps) => {
 
   const markAsRead = async (id: string) => {
     try {
-      await apiRequest("PATCH", `/api/notifications/${id}/read`);
+      await markNotificationRead(id);
       setNotifications(prev =>
         prev.map(n => n.id === id ? { ...n, read: true } : n)
       );
@@ -61,9 +59,9 @@ const Notifications = ({ userId }: NotificationsProps) => {
     }
   };
 
-  const markAllAsRead = async () => {
+  const markAllAsReadHandler = async () => {
     try {
-      await apiRequest("POST", "/api/notifications/read-all");
+      await markAllNotificationsRead();
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       setUnreadCount(0);
       toast.success("All notifications marked as read");
@@ -74,8 +72,8 @@ const Notifications = ({ userId }: NotificationsProps) => {
 
   useEffect(() => {
     if (userId) {
-      fetchNotifications();
-      const interval = setInterval(fetchNotifications, 60000);
+      fetchNotificationsData();
+      const interval = setInterval(fetchNotificationsData, 60000);
       return () => clearInterval(interval);
     }
   }, [userId]);
@@ -102,7 +100,7 @@ const Notifications = ({ userId }: NotificationsProps) => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={markAllAsRead}
+              onClick={markAllAsReadHandler}
               className="h-7 text-xs"
               data-testid="button-mark-all-read"
             >

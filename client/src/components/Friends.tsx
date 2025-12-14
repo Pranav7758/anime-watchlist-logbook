@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { apiRequest } from "@/lib/queryClient";
+import { getFriends, getFriendRequests, getFriendAnimeList, sendFriendRequest, updateFriendStatus, getProfileByShortId } from "@/services/supabaseData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,33 +53,28 @@ const Friends = ({ currentUserId }: FriendsProps) => {
   const [friendHentaiFilter, setFriendHentaiFilter] = useState<string>("show");
   const [friendRankingFilter, setFriendRankingFilter] = useState<string>("all");
 
-  const fetchFriends = async () => {
+  const fetchFriendsData = async () => {
     try {
-      const res = await apiRequest("GET", "/api/friends");
-      const data = await res.json();
-      
-      const accepted = data.filter((f: Friend) => f.status === "accepted");
-      setFriends(accepted);
+      const data = await getFriends();
+      setFriends(data || []);
     } catch (error) {
       console.error("Error fetching friends:", error);
       toast.error("Failed to load friends");
     }
   };
 
-  const fetchFriendRequests = async () => {
+  const fetchFriendRequestsData = async () => {
     try {
-      const res = await apiRequest("GET", "/api/friends/requests");
-      const data = await res.json();
+      const data = await getFriendRequests();
       setPendingRequests(data || []);
     } catch (error) {
       console.error("Error fetching friend requests:", error);
     }
   };
 
-  const fetchFriendAnimeList = async (friendId: string) => {
+  const fetchFriendAnimeListData = async (friendId: string) => {
     try {
-      const res = await apiRequest("GET", `/api/friends/${friendId}/anime`);
-      const data = await res.json();
+      const data = await getFriendAnimeList(friendId);
       setFriendAnimeList(data || []);
     } catch (error) {
       console.error("Error fetching friend's anime list:", error);
@@ -89,13 +84,13 @@ const Friends = ({ currentUserId }: FriendsProps) => {
   };
 
   useEffect(() => {
-    fetchFriends();
-    fetchFriendRequests();
+    fetchFriendsData();
+    fetchFriendRequestsData();
   }, [currentUserId]);
 
   useEffect(() => {
     if (selectedFriendForList) {
-      fetchFriendAnimeList(selectedFriendForList);
+      fetchFriendAnimeListData(selectedFriendForList);
     } else {
       setFriendAnimeList([]);
       setFilteredFriendAnimeList([]);
@@ -139,7 +134,7 @@ const Friends = ({ currentUserId }: FriendsProps) => {
     return groups;
   }, {} as Record<string, Anime[]>);
 
-  const sendFriendRequest = async () => {
+  const handleSendFriendRequest = async () => {
     if (!searchShortId || searchShortId.trim().length !== 5) {
       toast.error("Please enter a valid 5-character User ID");
       return;
@@ -147,11 +142,16 @@ const Friends = ({ currentUserId }: FriendsProps) => {
 
     setIsLoading(true);
     try {
-      await apiRequest("POST", "/api/friends", { shortId: searchShortId.toUpperCase().trim() });
+      const profile = await getProfileByShortId(searchShortId.toUpperCase().trim());
+      if (!profile) {
+        toast.error("User not found");
+        return;
+      }
+      await sendFriendRequest(profile.id);
       toast.success("Friend request sent!");
       setSearchShortId("");
-      fetchFriends();
-      fetchFriendRequests();
+      fetchFriendsData();
+      fetchFriendRequestsData();
     } catch (error: any) {
       console.error("Error sending friend request:", error);
       toast.error(error.message || "Failed to send friend request");
@@ -162,10 +162,10 @@ const Friends = ({ currentUserId }: FriendsProps) => {
 
   const acceptFriendRequest = async (requestId: string) => {
     try {
-      await apiRequest("PATCH", `/api/friends/${requestId}`, { status: "accepted" });
+      await updateFriendStatus(requestId, "accepted");
       toast.success("Friend request accepted!");
-      fetchFriends();
-      fetchFriendRequests();
+      fetchFriendsData();
+      fetchFriendRequestsData();
     } catch (error) {
       console.error("Error accepting request:", error);
       toast.error("Failed to accept friend request");
@@ -174,9 +174,9 @@ const Friends = ({ currentUserId }: FriendsProps) => {
 
   const rejectFriendRequest = async (requestId: string) => {
     try {
-      await apiRequest("PATCH", `/api/friends/${requestId}`, { status: "rejected" });
+      await updateFriendStatus(requestId, "rejected");
       toast.success("Friend request rejected");
-      fetchFriendRequests();
+      fetchFriendRequestsData();
     } catch (error) {
       console.error("Error rejecting request:", error);
       toast.error("Failed to reject friend request");
@@ -431,7 +431,7 @@ const Friends = ({ currentUserId }: FriendsProps) => {
                     data-testid="input-friend-id"
                   />
                   <Button
-                    onClick={sendFriendRequest}
+                    onClick={handleSendFriendRequest}
                     disabled={isLoading || searchShortId.length !== 5}
                     data-testid="button-send-request"
                   >

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { apiRequest } from "@/lib/queryClient";
+import { getAnimeList, createAnime, updateAnime, deleteAnime } from "@/services/supabaseData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -71,8 +71,7 @@ const Index = () => {
     if (!user) return;
     
     try {
-      const res = await apiRequest("GET", "/api/anime");
-      const data = await res.json();
+      const data = await getAnimeList();
       setAnimeList(data || []);
     } catch (error) {
       console.error("Error fetching anime:", error);
@@ -142,7 +141,7 @@ const Index = () => {
       }));
 
       try {
-        await apiRequest("POST", "/api/anime", seasonsToAdd);
+        await createAnime(seasonsToAdd);
         toast.success(`${selectedSeasons.length} season${selectedSeasons.length !== 1 ? 's' : ''} added successfully!`);
         fetchAnimeList();
       } catch (error: any) {
@@ -154,7 +153,7 @@ const Index = () => {
     }
     
     const numberOfSeasons = data.numberOfSeasons || 1;
-    const seasonsToAdd = Array.from({ length: numberOfSeasons }, (_, i) => ({
+    const seasonsToAdd2 = Array.from({ length: numberOfSeasons }, (_, i) => ({
       title: data.title,
       episodesWatched: data.episodesWatched,
       totalEpisodes: data.totalEpisodes,
@@ -167,7 +166,7 @@ const Index = () => {
     }));
 
     try {
-      await apiRequest("POST", "/api/anime", seasonsToAdd);
+      await createAnime(seasonsToAdd2);
       toast.success(`${numberOfSeasons} season${numberOfSeasons !== 1 ? 's' : ''} added successfully!`);
       fetchAnimeList();
     } catch (error: any) {
@@ -180,7 +179,7 @@ const Index = () => {
     if (!editingAnime) return;
 
     try {
-      await apiRequest("PATCH", `/api/anime/${editingAnime.id}`, {
+      await updateAnime(editingAnime.id, {
         title: data.title,
         episodesWatched: data.episodesWatched,
         totalEpisodes: data.totalEpisodes,
@@ -202,7 +201,7 @@ const Index = () => {
 
   const handleDeleteAnime = async (id: string) => {
     try {
-      await apiRequest("DELETE", `/api/anime/${id}`);
+      await deleteAnime(id);
       toast.success("Anime deleted successfully!");
       fetchAnimeList();
     } catch (error) {
