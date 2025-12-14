@@ -71,64 +71,70 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchProfile = async (userId: string, email?: string, displayName?: string) => {
+    const fallbackUser = {
+      id: userId,
+      email: email || "",
+      username: displayName || email?.split("@")[0] || "User",
+    };
+
     try {
-      const { data, error } = await supabase
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Profile fetch timeout")), 3000)
+      );
+
+      const fetchPromise = supabase
         .from("profiles")
         .select("*")
         .eq("id", userId)
         .single();
 
-      if (error && error.code === "PGRST116") {
-        // Profile doesn't exist, create it
-        const username = displayName || email?.split("@")[0] || "User";
-        const { data: newProfile, error: createError } = await supabase
-          .from("profiles")
-          .insert({
-            id: userId,
-            email: email || "",
-            username: username,
-          })
-          .select()
-          .single();
+      const result = await Promise.race([fetchPromise, timeoutPromise]) as any;
+      const { data, error } = result;
 
-        if (createError) {
-          console.error("Error creating profile:", createError);
-          // Still set user with basic info so they can use the app
-          setUser({
-            id: userId,
-            email: email || "",
-            username: username,
-          });
-        } else if (newProfile) {
-          setUser({
-            id: newProfile.id,
-            email: newProfile.email || "",
-            username: newProfile.username,
-          });
+      if (error && error.code === "PGRST116") {
+        const username = displayName || email?.split("@")[0] || "User";
+        try {
+          const { data: newProfile, error: createError } = await supabase
+            .from("profiles")
+            .insert({
+              id: userId,
+              email: email || "",
+              username: username,
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            console.error("Error creating profile:", createError);
+            setUser(fallbackUser);
+          } else if (newProfile) {
+            setUser({
+              id: newProfile.id,
+              email: newProfile.email || "",
+              username: newProfile.username,
+            });
+          } else {
+            setUser(fallbackUser);
+          }
+        } catch (createErr) {
+          console.error("Error creating profile:", createErr);
+          setUser(fallbackUser);
         }
       } else if (error) {
         console.error("Error fetching profile:", error);
-        // Still set user with basic info
-        setUser({
-          id: userId,
-          email: email || "",
-          username: displayName || email?.split("@")[0] || "User",
-        });
+        setUser(fallbackUser);
       } else if (data) {
         setUser({
           id: data.id,
           email: data.email || "",
           username: data.username,
         });
+      } else {
+        setUser(fallbackUser);
       }
     } catch (error) {
       console.error("Error fetching profile:", error);
-      // Still set user with basic info
-      setUser({
-        id: userId,
-        email: email || "",
-        username: displayName || email?.split("@")[0] || "User",
-      });
+      setUser(fallbackUser);
     } finally {
       setIsLoading(false);
     }
