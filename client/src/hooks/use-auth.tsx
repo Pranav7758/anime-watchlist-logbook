@@ -7,6 +7,7 @@ interface User {
   id: string;
   email: string;
   username: string | null;
+  shortId: string | null;
 }
 
 interface AuthContextType {
@@ -75,6 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       id: userId,
       email: email || "",
       username: displayName || email?.split("@")[0] || "User",
+      shortId: null,
     };
 
     try {
@@ -112,6 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               id: newProfile.id,
               email: newProfile.email || "",
               username: newProfile.username,
+              shortId: newProfile.short_id || null,
             });
           } else {
             setUser(fallbackUser);
@@ -128,6 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           id: data.id,
           email: data.email || "",
           username: data.username,
+          shortId: data.short_id || null,
         });
       } else {
         setUser(fallbackUser);
