@@ -131,25 +131,30 @@ export async function getFriends(): Promise<FriendData[]> {
 
   const { data, error } = await supabase
     .from('friends')
-    .select(`
-      *,
-      friend_profile:profiles!friends_friend_id_fkey(username),
-      user_profile:profiles!friends_user_id_fkey(username)
-    `)
+    .select('*')
     .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
     .eq('status', 'accepted');
 
   if (error) throw error;
   
-  return (data || []).map(friend => ({
-    id: friend.id,
-    userId: friend.user_id,
-    friendId: friend.friend_id,
-    status: friend.status,
-    friendName: friend.user_id === user.id 
-      ? friend.friend_profile?.username 
-      : friend.user_profile?.username,
+  const friendsWithNames = await Promise.all((data || []).map(async (friend) => {
+    const otherUserId = friend.user_id === user.id ? friend.friend_id : friend.user_id;
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('id', otherUserId)
+      .single();
+    
+    return {
+      id: friend.id,
+      userId: friend.user_id,
+      friendId: friend.friend_id,
+      status: friend.status,
+      friendName: profile?.username || 'Friend',
+    };
   }));
+  
+  return friendsWithNames;
 }
 
 export async function getFriendRequests(): Promise<FriendData[]> {
@@ -158,24 +163,29 @@ export async function getFriendRequests(): Promise<FriendData[]> {
 
   const { data, error } = await supabase
     .from('friends')
-    .select(`
-      *,
-      friend_profile:profiles!friends_friend_id_fkey(username),
-      user_profile:profiles!friends_user_id_fkey(username)
-    `)
+    .select('*')
     .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`);
 
   if (error) throw error;
   
-  return (data || []).map(friend => ({
-    id: friend.id,
-    userId: friend.user_id,
-    friendId: friend.friend_id,
-    status: friend.status,
-    friendName: friend.user_id === user.id 
-      ? friend.friend_profile?.username 
-      : friend.user_profile?.username,
+  const requestsWithNames = await Promise.all((data || []).map(async (friend) => {
+    const otherUserId = friend.user_id === user.id ? friend.friend_id : friend.user_id;
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('id', otherUserId)
+      .single();
+    
+    return {
+      id: friend.id,
+      userId: friend.user_id,
+      friendId: friend.friend_id,
+      status: friend.status,
+      friendName: profile?.username || 'Friend',
+    };
   }));
+  
+  return requestsWithNames;
 }
 
 export async function sendFriendRequest(friendId: string): Promise<FriendData> {
