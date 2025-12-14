@@ -280,10 +280,10 @@ export async function markAllNotificationsRead(): Promise<void> {
   if (error) throw error;
 }
 
-export async function getProfileByShortId(shortId: string): Promise<{ id: string; username: string } | null> {
+export async function getProfileByShortId(shortId: string): Promise<{ id: string; name: string } | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, username')
+    .select('id, name')
     .eq('short_id', shortId.toUpperCase())
     .single();
 
