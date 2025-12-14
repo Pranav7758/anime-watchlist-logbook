@@ -164,16 +164,16 @@ export async function getFriendRequests(): Promise<FriendData[]> {
   const { data, error } = await supabase
     .from('friends')
     .select('*')
-    .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`);
+    .eq('friend_id', user.id)
+    .eq('status', 'pending');
 
   if (error) throw error;
   
   const requestsWithNames = await Promise.all((data || []).map(async (friend) => {
-    const otherUserId = friend.user_id === user.id ? friend.friend_id : friend.user_id;
     const { data: profile } = await supabase
       .from('profiles')
       .select('name')
-      .eq('id', otherUserId)
+      .eq('id', friend.user_id)
       .single();
     
     return {
