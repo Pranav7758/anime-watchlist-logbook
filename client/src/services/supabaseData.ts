@@ -141,7 +141,7 @@ export async function getFriends(): Promise<FriendData[]> {
     const otherUserId = friend.user_id === user.id ? friend.friend_id : friend.user_id;
     const { data: profile } = await supabase
       .from('profiles')
-      .select('username')
+      .select('name')
       .eq('id', otherUserId)
       .single();
     
@@ -150,7 +150,7 @@ export async function getFriends(): Promise<FriendData[]> {
       userId: friend.user_id,
       friendId: friend.friend_id,
       status: friend.status,
-      friendName: profile?.username || 'Friend',
+      friendName: profile?.name || 'Friend',
     };
   }));
   
@@ -172,7 +172,7 @@ export async function getFriendRequests(): Promise<FriendData[]> {
     const otherUserId = friend.user_id === user.id ? friend.friend_id : friend.user_id;
     const { data: profile } = await supabase
       .from('profiles')
-      .select('username')
+      .select('name')
       .eq('id', otherUserId)
       .single();
     
@@ -181,7 +181,7 @@ export async function getFriendRequests(): Promise<FriendData[]> {
       userId: friend.user_id,
       friendId: friend.friend_id,
       status: friend.status,
-      friendName: profile?.username || 'Friend',
+      friendName: profile?.name || 'Friend',
     };
   }));
   
