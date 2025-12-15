@@ -12,11 +12,13 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
+  isRecoveryMode: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, username: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
+  clearRecoveryMode: () => void;
   loginWithGoogle: () => Promise<void>;
   session: Session | null;
 }
@@ -27,6 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -54,6 +57,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!isMounted) return;
+        
+        console.log("Auth event:", event);
+        
+        if (event === "PASSWORD_RECOVERY") {
+          console.log("Password recovery mode detected!");
+          setIsRecoveryMode(true);
+        }
+        
         setSession(session);
         if (session?.user) {
           await fetchProfile(session.user.id, session.user.email, session.user.user_metadata?.full_name);
@@ -221,8 +232,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const clearRecoveryMode = () => {
+    setIsRecoveryMode(false);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout, resetPassword, updatePassword, loginWithGoogle, session }}>
+    <AuthContext.Provider value={{ user, isLoading, isRecoveryMode, login, register, logout, resetPassword, updatePassword, clearRecoveryMode, loginWithGoogle, session }}>
       {children}
     </AuthContext.Provider>
   );
