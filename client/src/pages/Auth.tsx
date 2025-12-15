@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +12,8 @@ import Footer from "@/components/Footer";
 
 const Auth = () => {
   const [, setLocation] = useLocation();
-  const { user, isLoading: authLoading, login, register, resetPassword, loginWithGoogle } = useAuth();
+  const searchString = useSearch();
+  const { user, isLoading: authLoading, login, register, resetPassword, updatePassword, loginWithGoogle, session } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [email, setEmail] = useState("");
@@ -27,11 +27,12 @@ const Auth = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('type') === 'recovery') {
+    const params = new URLSearchParams(searchString);
+    const type = params.get("type");
+    if (type === "recovery" && session) {
       setIsRecoveryMode(true);
     }
-  }, []);
+  }, [searchString, session]);
 
   useEffect(() => {
     if (user && !isRecoveryMode) {
@@ -118,22 +119,19 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
-      if (newPassword !== confirmPassword) {
-        toast.error("Passwords do not match");
-        setIsLoading(false);
-        return;
-      }
-
       if (newPassword.length < 6) {
         toast.error("Password must be at least 6 characters");
         setIsLoading(false);
         return;
       }
 
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      
-      if (error) throw error;
-      
+      if (newPassword !== confirmPassword) {
+        toast.error("Passwords do not match");
+        setIsLoading(false);
+        return;
+      }
+
+      await updatePassword(newPassword);
       toast.success("Password updated successfully!");
       setIsRecoveryMode(false);
       setNewPassword("");
