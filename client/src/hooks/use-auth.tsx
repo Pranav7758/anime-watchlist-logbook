@@ -7,7 +7,6 @@ interface User {
   id: string;
   email: string;
   username: string | null;
-  shortId: string | null;
 }
 
 interface AuthContextType {
@@ -17,6 +16,7 @@ interface AuthContextType {
   register: (email: string, password: string, username: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   session: Session | null;
 }
@@ -72,73 +72,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchProfile = async (userId: string, email?: string, displayName?: string) => {
-    const fallbackUser = {
-      id: userId,
-      email: email || "",
-      username: displayName || email?.split("@")[0] || "User",
-      shortId: null,
-    };
-
     try {
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Profile fetch timeout")), 3000)
-      );
-
-      const fetchPromise = supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", userId)
         .single();
 
-      const result = await Promise.race([fetchPromise, timeoutPromise]) as any;
-      const { data, error } = result;
-
       if (error && error.code === "PGRST116") {
+        // Profile doesn't exist, create it
         const username = displayName || email?.split("@")[0] || "User";
-        try {
-          const { data: newProfile, error: createError } = await supabase
-            .from("profiles")
-            .insert({
-              id: userId,
-              email: email || "",
-              username: username,
-            })
-            .select()
-            .single();
+        const { data: newProfile, error: createError } = await supabase
+          .from("profiles")
+          .insert({
+            id: userId,
+            email: email || "",
+            username: username,
+          })
+          .select()
+          .single();
 
-          if (createError) {
-            console.error("Error creating profile:", createError);
-            setUser(fallbackUser);
-          } else if (newProfile) {
-            setUser({
-              id: newProfile.id,
-              email: newProfile.email || "",
-              username: newProfile.name,
-              shortId: newProfile.short_id || null,
-            });
-          } else {
-            setUser(fallbackUser);
-          }
-        } catch (createErr) {
-          console.error("Error creating profile:", createErr);
-          setUser(fallbackUser);
+        if (createError) {
+          console.error("Error creating profile:", createError);
+          // Still set user with basic info so they can use the app
+          setUser({
+            id: userId,
+            email: email || "",
+            username: username,
+          });
+        } else if (newProfile) {
+          setUser({
+            id: newProfile.id,
+            email: newProfile.email || "",
+            username: newProfile.username,
+          });
         }
       } else if (error) {
         console.error("Error fetching profile:", error);
-        setUser(fallbackUser);
+        // Still set user with basic info
+        setUser({
+          id: userId,
+          email: email || "",
+          username: displayName || email?.split("@")[0] || "User",
+        });
       } else if (data) {
         setUser({
           id: data.id,
           email: data.email || "",
-          username: data.name,
-          shortId: data.short_id || null,
+          username: data.username,
         });
-      } else {
-        setUser(fallbackUser);
       }
     } catch (error) {
       console.error("Error fetching profile:", error);
-      setUser(fallbackUser);
+      // Still set user with basic info
+      setUser({
+        id: userId,
+        email: email || "",
+        username: displayName || email?.split("@")[0] || "User",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -220,8 +211,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updatePassword = async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout, resetPassword, loginWithGoogle, session }}>
+    <AuthContext.Provider value={{ user, isLoading, login, register, logout, resetPassword, updatePassword, loginWithGoogle, session }}>
       {children}
     </AuthContext.Provider>
   );
