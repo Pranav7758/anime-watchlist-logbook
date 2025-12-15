@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation, useSearch } from "wouter";
+import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,7 @@ import Footer from "@/components/Footer";
 
 const Auth = () => {
   const [, setLocation] = useLocation();
-  const searchString = useSearch();
-  const { user, isLoading: authLoading, login, register, resetPassword, updatePassword, loginWithGoogle, session } = useAuth();
+  const { user, isLoading: authLoading, isRecoveryMode, login, register, resetPassword, updatePassword, clearRecoveryMode, loginWithGoogle } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [email, setEmail] = useState("");
@@ -22,17 +21,8 @@ const Auth = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [resetSent, setResetSent] = useState(false);
-  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
-  useEffect(() => {
-    const params = new URLSearchParams(searchString);
-    const type = params.get("type");
-    if (type === "recovery" && session) {
-      setIsRecoveryMode(true);
-    }
-  }, [searchString, session]);
 
   useEffect(() => {
     if (user && !isRecoveryMode) {
@@ -133,7 +123,7 @@ const Auth = () => {
 
       await updatePassword(newPassword);
       toast.success("Password updated successfully!");
-      setIsRecoveryMode(false);
+      clearRecoveryMode();
       setNewPassword("");
       setConfirmPassword("");
       setLocation("/");
