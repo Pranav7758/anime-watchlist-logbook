@@ -33,26 +33,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
-    
-    const timeout = setTimeout(() => {
+    let timeoutId: NodeJS.Timeout;
+
+    const initAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!isMounted) return;
+        
+        setSession(session);
+        if (session?.user) {
+          await fetchProfile(session.user.id, session.user.email, session.user.user_metadata?.full_name);
+        } else {
+          setUser(null);
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error("Error getting session:", error);
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    initAuth();
+
+    timeoutId = setTimeout(() => {
       if (isMounted && isLoading) {
         console.warn("Auth timeout - forcing loading to complete");
         setIsLoading(false);
       }
-    }, 5000);
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!isMounted) return;
-      setSession(session);
-      if (session?.user) {
-        fetchProfile(session.user.id, session.user.email, session.user.user_metadata?.full_name);
-      } else {
-        setIsLoading(false);
-      }
-    }).catch((error) => {
-      console.error("Error getting session:", error);
-      if (isMounted) setIsLoading(false);
-    });
+    }, 10000);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -60,8 +68,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         console.log("Auth event:", event);
         
+        if (event === "SIGNED_OUT") {
+          setUser(null);
+          setSession(null);
+          setIsLoading(false);
+          return;
+        }
+        
         if (event === "PASSWORD_RECOVERY") {
-          console.log("Password recovery mode detected!");
           setIsRecoveryMode(true);
         }
         
@@ -77,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       isMounted = false;
-      clearTimeout(timeout);
+      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, []);
@@ -188,14 +202,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       queryClient.clear();
+      const { error } = await supabase.auth.signOut({ scope: 'global' });
       setUser(null);
       setSession(null);
-      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      setIsLoading(false);
       if (error) {
         console.error("Logout error:", error);
       }
     } catch (error) {
       console.error("Logout error:", error);
+      setUser(null);
+      setSession(null);
+      setIsLoading(false);
     }
   };
 
