@@ -7,6 +7,7 @@ interface User {
   id: string;
   email: string;
   username: string | null;
+  shortId: string | null;
 }
 
 interface AuthContextType {
@@ -96,6 +97,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const generateShortId = (): string => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 5; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+
   const fetchProfile = async (userId: string, email?: string, displayName?: string) => {
     try {
       const { data, error } = await supabase
@@ -107,53 +117,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error && error.code === "PGRST116") {
         // Profile doesn't exist, create it
         const username = displayName || email?.split("@")[0] || "User";
+        const shortId = generateShortId();
         const { data: newProfile, error: createError } = await supabase
           .from("profiles")
           .insert({
             id: userId,
             email: email || "",
             username: username,
+            short_id: shortId,
           })
           .select()
           .single();
 
         if (createError) {
           console.error("Error creating profile:", createError);
-          // Still set user with basic info so they can use the app
           setUser({
             id: userId,
             email: email || "",
             username: username,
+            shortId: generateShortId(),
           });
         } else if (newProfile) {
           setUser({
             id: newProfile.id,
             email: newProfile.email || "",
             username: newProfile.username,
+            shortId: newProfile.short_id || generateShortId(),
           });
         }
       } else if (error) {
         console.error("Error fetching profile:", error);
-        // Still set user with basic info
         setUser({
           id: userId,
           email: email || "",
           username: displayName || email?.split("@")[0] || "User",
+          shortId: generateShortId(),
         });
       } else if (data) {
         setUser({
           id: data.id,
           email: data.email || "",
           username: data.username,
+          shortId: data.short_id || generateShortId(),
         });
       }
     } catch (error) {
       console.error("Error fetching profile:", error);
-      // Still set user with basic info
       setUser({
         id: userId,
         email: email || "",
         username: displayName || email?.split("@")[0] || "User",
+        shortId: generateShortId(),
       });
     } finally {
       setIsLoading(false);
