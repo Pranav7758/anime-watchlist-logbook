@@ -247,16 +247,9 @@ const Index = () => {
       <header className="sticky top-0 z-10 border-b border-border/50 bg-background/80 backdrop-blur-lg">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-2">
-            <div>
-              <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
-                AniCircle
-              </h2>
-              {user && (
-                <p className="text-xs sm:text-sm text-muted-foreground mt-1" data-testid="text-user-id">
-                  ID: <span className="font-mono select-all">{user.id}</span>
-                </p>
-              )}
-            </div>
+            <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+              AniCircle
+            </h2>
             <div className="flex items-center gap-2">
               {user && <Notifications userId={user.id} />}
               <Button
