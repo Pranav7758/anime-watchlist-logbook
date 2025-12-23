@@ -34,13 +34,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
-    let timeoutId: NodeJS.Timeout;
+    let initialAuthDone = false;
 
     const initAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!isMounted) return;
         
+        initialAuthDone = true;
         setSession(session);
         if (session?.user) {
           await fetchProfile(session.user.id, session.user.email, session.user.user_metadata?.full_name);
@@ -50,18 +51,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         console.error("Error getting session:", error);
-        if (isMounted) setIsLoading(false);
+        if (isMounted) {
+          initialAuthDone = true;
+          setIsLoading(false);
+        }
       }
     };
 
     initAuth();
 
-    timeoutId = setTimeout(() => {
-      if (isMounted && isLoading) {
-        console.warn("Auth timeout - forcing loading to complete");
+    const timeoutId = setTimeout(() => {
+      if (isMounted && isLoading && initialAuthDone) {
+        console.warn("Auth still loading after 5s, forcing completion");
         setIsLoading(false);
       }
-    }, 10000);
+    }, 5000);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -78,14 +82,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (event === "PASSWORD_RECOVERY") {
           setIsRecoveryMode(true);
+          return;
         }
         
-        setSession(session);
-        if (session?.user) {
-          await fetchProfile(session.user.id, session.user.email, session.user.user_metadata?.full_name);
-        } else {
-          setUser(null);
-          setIsLoading(false);
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+          setSession(session);
+          if (session?.user) {
+            await fetchProfile(session.user.id, session.user.email, session.user.user_metadata?.full_name);
+          }
         }
       }
     );
