@@ -34,14 +34,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
-    let initialAuthDone = false;
 
     const initAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!isMounted) return;
         
-        initialAuthDone = true;
         setSession(session);
         if (session?.user) {
           await fetchProfile(session.user.id, session.user.email, session.user.user_metadata?.full_name);
@@ -51,22 +49,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         console.error("Error getting session:", error);
-        if (isMounted) {
-          initialAuthDone = true;
-          setIsLoading(false);
-        }
+        if (isMounted) setIsLoading(false);
       }
     };
 
+    // Initial auth check
     initAuth();
 
+    // Timeout fallback - force loading to complete after 8 seconds
     const timeoutId = setTimeout(() => {
-      if (isMounted && isLoading && initialAuthDone) {
-        console.warn("Auth still loading after 5s, forcing completion");
+      if (isMounted) {
+        console.warn("Auth timeout - forcing completion");
         setIsLoading(false);
       }
-    }, 5000);
+    }, 8000);
 
+    // Subscribe to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!isMounted) return;
@@ -85,11 +83,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         
-        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-          setSession(session);
-          if (session?.user) {
-            await fetchProfile(session.user.id, session.user.email, session.user.user_metadata?.full_name);
-          }
+        // Only process SIGNED_IN from auth state change
+        if (event === "SIGNED_IN" && session?.user) {
+          await fetchProfile(session.user.id, session.user.email, session.user.user_metadata?.full_name);
         }
       }
     );
@@ -100,15 +96,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe();
     };
   }, []);
-
-  const generateShortId = (): string => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = '';
-    for (let i = 0; i < 5; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-  };
 
   const fetchProfile = async (userId: string, email?: string, displayName?: string) => {
     try {
@@ -121,14 +108,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error && error.code === "PGRST116") {
         // Profile doesn't exist, create it
         const username = displayName || email?.split("@")[0] || "User";
-        const shortId = generateShortId();
         const { data: newProfile, error: createError } = await supabase
           .from("profiles")
           .insert({
             id: userId,
             email: email || "",
             username: username,
-            short_id: shortId,
           })
           .select()
           .single();
@@ -139,14 +124,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             id: userId,
             email: email || "",
             username: username,
-            shortId: generateShortId(),
+            shortId: null,
           });
         } else if (newProfile) {
           setUser({
             id: newProfile.id,
             email: newProfile.email || "",
             username: newProfile.username,
-            shortId: newProfile.short_id || generateShortId(),
+            shortId: newProfile.short_id,
           });
         }
       } else if (error) {
@@ -155,14 +140,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           id: userId,
           email: email || "",
           username: displayName || email?.split("@")[0] || "User",
-          shortId: generateShortId(),
+          shortId: null,
         });
       } else if (data) {
         setUser({
           id: data.id,
           email: data.email || "",
           username: data.username,
-          shortId: data.short_id || generateShortId(),
+          shortId: data.short_id,
         });
       }
     } catch (error) {
@@ -171,7 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: userId,
         email: email || "",
         username: displayName || email?.split("@")[0] || "User",
-        shortId: generateShortId(),
+        shortId: null,
       });
     } finally {
       setIsLoading(false);
