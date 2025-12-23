@@ -34,6 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
+    let profileFetchTimeout: NodeJS.Timeout | null = null;
 
     const initAuth = async () => {
       try {
@@ -42,7 +43,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         setSession(session);
         if (session?.user) {
-          await fetchProfile(session.user.id, session.user.email, session.user.user_metadata?.full_name);
+          // Start profile fetch with timeout
+          profileFetchTimeout = setTimeout(() => {
+            console.warn("Profile fetch timeout");
+            if (isMounted) {
+              setUser({
+                id: session.user.id,
+                email: session.user.email || "",
+                username: session.user.user_metadata?.full_name || "User",
+                shortId: null,
+              });
+              setIsLoading(false);
+            }
+          }, 3000);
+          
+          try {
+            await fetchProfile(session.user.id, session.user.email, session.user.user_metadata?.full_name);
+            if (profileFetchTimeout && isMounted) {
+              clearTimeout(profileFetchTimeout);
+            }
+          } catch (err) {
+            console.error("Profile fetch error:", err);
+            if (isMounted) {
+              setUser({
+                id: session.user.id,
+                email: session.user.email || "",
+                username: session.user.user_metadata?.full_name || "User",
+                shortId: null,
+              });
+              setIsLoading(false);
+            }
+          }
         } else {
           setUser(null);
           setIsLoading(false);
@@ -53,20 +84,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    // Initial auth check
     initAuth();
-
-    // Timeout fallback - force loading to complete after 8 seconds
-    const timeoutId = setTimeout(() => {
-      if (isMounted) {
-        console.warn("Auth timeout - forcing completion");
-        setIsLoading(false);
-      }
-    }, 8000);
 
     // Subscribe to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (!isMounted) return;
         
         console.log("Auth event:", event);
@@ -75,6 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
           setSession(null);
           setIsLoading(false);
+          if (profileFetchTimeout) clearTimeout(profileFetchTimeout);
           return;
         }
         
@@ -83,21 +106,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         
-        // Only process SIGNED_IN from auth state change
-        if (event === "SIGNED_IN" && session?.user) {
-          await fetchProfile(session.user.id, session.user.email, session.user.user_metadata?.full_name);
+        // Handle sign in events
+        if ((event === "SIGNED_IN" || event === "USER_UPDATED") && session?.user) {
+          fetchProfile(session.user.id, session.user.email, session.user.user_metadata?.full_name);
         }
       }
     );
 
     return () => {
       isMounted = false;
-      clearTimeout(timeoutId);
+      if (profileFetchTimeout) clearTimeout(profileFetchTimeout);
       subscription.unsubscribe();
     };
   }, []);
 
   const fetchProfile = async (userId: string, email?: string, displayName?: string) => {
+    // Set basic user immediately to unblock UI
+    const basicUser = {
+      id: userId,
+      email: email || "",
+      username: displayName || email?.split("@")[0] || "User",
+      shortId: null as string | null,
+    };
+    
+    setUser(basicUser);
+    setIsLoading(false);
+
+    // Fetch full profile in background (don't block on this)
     try {
       const { data, error } = await supabase
         .from("profiles")
@@ -108,7 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error && error.code === "PGRST116") {
         // Profile doesn't exist, create it
         const username = displayName || email?.split("@")[0] || "User";
-        const { data: newProfile, error: createError } = await supabase
+        const { data: newProfile } = await supabase
           .from("profiles")
           .insert({
             id: userId,
@@ -118,15 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .select()
           .single();
 
-        if (createError) {
-          console.error("Error creating profile:", createError);
-          setUser({
-            id: userId,
-            email: email || "",
-            username: username,
-            shortId: null,
-          });
-        } else if (newProfile) {
+        if (newProfile) {
           setUser({
             id: newProfile.id,
             email: newProfile.email || "",
@@ -134,14 +161,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             shortId: newProfile.short_id,
           });
         }
-      } else if (error) {
-        console.error("Error fetching profile:", error);
-        setUser({
-          id: userId,
-          email: email || "",
-          username: displayName || email?.split("@")[0] || "User",
-          shortId: null,
-        });
       } else if (data) {
         setUser({
           id: data.id,
@@ -151,15 +170,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       }
     } catch (error) {
-      console.error("Error fetching profile:", error);
-      setUser({
-        id: userId,
-        email: email || "",
-        username: displayName || email?.split("@")[0] || "User",
-        shortId: null,
-      });
-    } finally {
-      setIsLoading(false);
+      console.error("Background profile fetch error:", error);
+      // Don't block - user is already set
     }
   };
 
